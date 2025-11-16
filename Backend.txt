@@ -1,0 +1,40 @@
+const express = require('express');
+const Stripe = require('stripe');
+const cors = require('cors');
+
+const app = express();
+app.use(express.json());
+app.use(cors());
+
+// Clé secrète Stripe (à mettre en variable d'environnement en production)
+const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+
+app.post('/create-checkout-session', async (req, res) => {
+  const { cart } = req.body;
+
+  const line_items = cart.map(item => ({
+    price_data: {
+      currency: 'eur',
+      product_data: { name: item.name },
+      unit_amount: Math.round(item.price * 100),
+    },
+    quantity: 1,
+  }));
+
+  try {
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items,
+      mode: 'payment',
+      success_url: 'https://ton-site.vercel.app/success.html',
+      cancel_url: 'https://ton-site.vercel.app/cart.html',
+    });
+
+    res.json({ url: session.url });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+const PORT = process.env.PORT || 4242;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
